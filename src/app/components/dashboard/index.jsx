@@ -1,6 +1,34 @@
 'use client'
 
 import React, { useState, useRef, useEffect } from 'react';
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogClose
+} from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { 
+  AlertCircle, 
+  Mic, 
+  User, 
+  Moon, 
+  Sun, 
+  Play, 
+  Square, 
+  Loader2 
+} from "lucide-react";
+import { useTheme } from "next-themes";
+import { motion, AnimatePresence } from "framer-motion";
+import { Toaster, toast } from "sonner";
 
 const Dashboard = () => {
     const [isRecording, setIsRecording] = useState(false);
@@ -12,6 +40,8 @@ const Dashboard = () => {
     const [showEmailModal, setShowEmailModal] = useState(false);
     const [email, setEmail] = useState('');
     const [emailInput, setEmailInput] = useState('');
+    
+    const { theme, setTheme } = useTheme();
     
     const mediaRecorderRef = useRef(null);
     const audioChunksRef = useRef([]);
@@ -26,7 +56,11 @@ const Dashboard = () => {
         if (savedEmail) {
             setEmail(savedEmail);
         }
-        setAnimationActive(true);
+        
+        // Delayed animation for a smoother entrance
+        setTimeout(() => {
+            setAnimationActive(true);
+        }, 300);
         
         return () => {
             if (animationFrameRef.current) {
@@ -41,6 +75,10 @@ const Dashboard = () => {
             localStorage.setItem('userEmail', emailInput);
             setEmail(emailInput);
             setShowEmailModal(false);
+            
+            toast.success("Email saved", {
+                description: `You're now using ${emailInput}`,
+            });
         }
     };
 
@@ -68,7 +106,9 @@ const Dashboard = () => {
             animationFrameRef.current = requestAnimationFrame(draw);
             analyser.getByteFrequencyData(dataArray);
             
-            canvasCtx.fillStyle = '#000';
+            // Use theme-aware colors
+            const isDark = theme === 'dark';
+            canvasCtx.fillStyle = isDark ? '#1a1a1a' : '#f0f0f0';
             canvasCtx.fillRect(0, 0, canvas.width, canvas.height);
             
             const barWidth = (canvas.width / bufferLength) * 2.5;
@@ -79,8 +119,13 @@ const Dashboard = () => {
                 barHeight = dataArray[i] / 2;
                 
                 const gradient = canvasCtx.createLinearGradient(0, 0, 0, canvas.height);
-                gradient.addColorStop(0, '#00c6ff');
-                gradient.addColorStop(1, '#0072ff');
+                if (isDark) {
+                    gradient.addColorStop(0, '#6366f1'); // indigo-500
+                    gradient.addColorStop(1, '#8b5cf6'); // violet-500
+                } else {
+                    gradient.addColorStop(0, '#4f46e5'); // indigo-600
+                    gradient.addColorStop(1, '#7c3aed'); // violet-600
+                }
                 
                 canvasCtx.fillStyle = gradient;
                 canvasCtx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
@@ -113,6 +158,10 @@ const Dashboard = () => {
             setIsRecording(true);
             setRecordingStatus('Recording your voice...');
             
+            toast("Recording started", {
+                description: "Speak clearly into your microphone",
+            });
+            
             // Setup visualizer with the stream
             setupVisualizer(stream);
             
@@ -131,6 +180,10 @@ const Dashboard = () => {
         } catch (error) {
             console.error('Error starting recording:', error);
             setRecordingStatus('Microphone access denied');
+            
+            toast.error("Error", {
+                description: "Microphone access denied. Please check your permissions.",
+            });
         }
     };
 
@@ -140,6 +193,10 @@ const Dashboard = () => {
             setIsRecording(false);
             setIsProcessing(true);
             setRecordingStatus('Processing recording...');
+            
+            toast("Recording stopped", {
+                description: "Processing your audio...",
+            });
             
             // Stop all tracks on the stream
             mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
@@ -178,6 +235,10 @@ const Dashboard = () => {
                     const data = await response.json();
                     setApiResult(data);
                     setRecordingStatus('API request successful!');
+                    
+                    toast.success("Success", {
+                        description: "Your recording was processed successfully",
+                    });
                 } else {
                     throw new Error(`API responded with status: ${response.status}`);
                 }
@@ -185,12 +246,20 @@ const Dashboard = () => {
                 console.error('API Error:', apiError);
                 setApiResult(`Error: Could not process the request. ${apiError.message}`);
                 setRecordingStatus('API request failed');
+                
+                toast.error("API Error", {
+                    description: "Could not process your recording. Please try again.",
+                });
             }
             
         } catch (error) {
             console.error('Error processing recording:', error);
             setRecordingStatus('Error processing recording');
             setApiResult("Error: Could not process the audio recording.");
+            
+            toast.error("Error", {
+                description: "Failed to process the recording",
+            });
         } finally {
             setIsProcessing(false);
         }
@@ -199,405 +268,240 @@ const Dashboard = () => {
     const playRecording = () => {
         if (audioRef.current && audioUrl) {
             audioRef.current.play();
+            
+            toast("Playing", {
+                description: "Playing your recorded audio",
+            });
         }
     };
 
+    const toggleTheme = () => {
+        setTheme(theme === 'dark' ? 'light' : 'dark');
+    };
+
     return (
-        <div style={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            minHeight: '100vh',
-            padding: 0,
-            margin: 0,
-            backgroundColor: '#121212',
-            color: '#ffffff',
-            fontFamily: 'Arial, sans-serif',
-            transition: 'all 0.3s ease',
-            position: 'relative'
-        }}>
-            {/* User Icon */}
-            <div 
-                onClick={() => setShowEmailModal(true)}
-                style={{
-                    position: 'absolute',
-                    top: '20px',
-                    right: '20px',
-                    width: '40px',
-                    height: '40px',
-                    borderRadius: '50%',
-                    backgroundColor: '#1e1e1e',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    cursor: 'pointer',
-                    boxShadow: '0 2px 10px rgba(0, 0, 0, 0.3)',
-                    border: '1px solid #333',
-                    zIndex: 10,
-                    transition: 'all 0.2s ease'
-                }}
-                onMouseOver={(e) => e.currentTarget.style.transform = 'scale(1.1)'}
-                onMouseOut={(e) => e.currentTarget.style.transform = 'scale(1)'}
+        <div className="min-h-screen min-w-screen bg-gradient-to-br from-background via-background/95 to-background/90 flex flex-col p-0 m-0 relative overflow-hidden">
+            {/* Background decoration */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none">
+                <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/10 rounded-full blur-3xl" />
+                <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-secondary/10 rounded-full blur-3xl" />
+                <div className="absolute top-1/4 left-1/4 w-60 h-60 bg-accent/5 rounded-full blur-3xl" />
+            </div>
+            
+            {/* Theme Switcher */}
+            <Button 
+                variant="ghost" 
+                size="icon" 
+                className="absolute top-5 right-16 z-10 rounded-full"
+                onClick={toggleTheme}
             >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 12C14.21 12 16 10.21 16 8C16 5.79 14.21 4 12 4C9.79 4 8 5.79 8 8C8 10.21 9.79 12 12 12Z" stroke="#00c6ff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                    <path d="M20 21C20 18.87 19.1 16.84 17.5 15.34C15.9 13.84 13.77 13 11.5 13C9.23 13 7.1 13.84 5.5 15.34C3.9 16.84 3 18.87 3 21" stroke="#00c6ff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
+                {theme === 'dark' ? (
+                    <Sun className="h-5 w-5 text-yellow-400" />
+                ) : (
+                    <Moon className="h-5 w-5 text-slate-700" />
+                )}
+                <span className="sr-only">Toggle theme</span>
+            </Button>
+            
+            {/* User Icon */}
+            <div className="absolute top-5 right-5 z-10">
+                <Avatar 
+                    onClick={() => setShowEmailModal(true)}
+                    className="cursor-pointer hover:scale-110 transition-transform border border-border bg-card shadow-md"
+                >
+                    <AvatarFallback>
+                        <User className="h-5 w-5 text-primary" />
+                    </AvatarFallback>
+                </Avatar>
             </div>
             
             {/* Email Status Indicator */}
-            {email && (
-                <div style={{
-                    position: 'absolute',
-                    top: '20px',
-                    left: '20px',
-                    padding: '8px 12px',
-                    borderRadius: '20px',
-                    backgroundColor: 'rgba(0, 198, 255, 0.1)',
-                    border: '1px solid #00c6ff',
-                    color: '#00c6ff',
-                    fontSize: '12px',
-                    zIndex: 10
-                }}>
-                    <span style={{ opacity: 0.8 }}>Logged in as:</span> {email}
-                </div>
-            )}
+            <AnimatePresence>
+                {email && (
+                    <motion.div
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        transition={{ duration: 0.3 }}
+                    >
+                        <Badge 
+                            variant="outline" 
+                            className="absolute top-5 left-5 z-10 bg-primary/10 text-primary border-primary shadow-sm"
+                        >
+                            <span className="opacity-80 mr-1">Logged in as:</span> {email}
+                        </Badge>
+                    </motion.div>
+                )}
+            </AnimatePresence>
             
             {/* Email Modal */}
-            {showEmailModal && (
-                <div style={{
-                    position: 'fixed',
-                    top: 0,
-                    left: 0,
-                    width: '100%',
-                    height: '100%',
-                    backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    zIndex: 100,
-                    animation: 'fadeIn 0.3s ease'
-                }}>
-                    <div style={{
-                        backgroundColor: '#1e1e1e',
-                        padding: '30px',
-                        borderRadius: '12px',
-                        boxShadow: '0 10px 40px rgba(0, 0, 0, 0.5)',
-                        width: '90%',
-                        maxWidth: '400px',
-                        border: '1px solid #333',
-                        animation: 'scaleIn 0.3s ease'
-                    }}>
-                        <div style={{
-                            display: 'flex',
-                            justifyContent: 'space-between',
-                            alignItems: 'center',
-                            marginBottom: '20px'
-                        }}>
-                            <h2 style={{
-                                margin: 0,
-                                color: '#00c6ff'
-                            }}>Enter Your Email</h2>
-                            <button 
-                                onClick={() => setShowEmailModal(false)}
-                                style={{
-                                    background: 'none',
-                                    border: 'none',
-                                    color: '#666',
-                                    fontSize: '24px',
-                                    cursor: 'pointer',
-                                    padding: '0',
-                                    lineHeight: '1'
-                                }}
-                            >
-                                ×
-                            </button>
-                        </div>
-                        
-                        <form onSubmit={handleEmailSubmit}>
-                            <input
+            <Dialog open={showEmailModal} onOpenChange={setShowEmailModal}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="text-primary">Enter Your Email</DialogTitle>
+                        <DialogDescription>
+                            We'll use this email to identify your recordings.
+                        </DialogDescription>
+                    </DialogHeader>
+                    
+                    <form onSubmit={handleEmailSubmit}>
+                        <div className="grid gap-4 py-4">
+                            <Input
                                 type="email"
                                 value={emailInput}
                                 onChange={(e) => setEmailInput(e.target.value)}
                                 placeholder="your.email@example.com"
-                                style={{
-                                    width: '100%',
-                                    padding: '12px',
-                                    fontSize: '16px',
-                                    backgroundColor: '#252525',
-                                    border: '1px solid #444',
-                                    borderRadius: '6px',
-                                    color: 'white',
-                                    marginBottom: '20px'
-                                }}
                                 required
+                                className="focus-visible:ring-primary"
                             />
-                            
-                            <div style={{
-                                display: 'flex',
-                                justifyContent: 'flex-end',
-                                gap: '10px'
-                            }}>
-                                <button
-                                    type="button"
-                                    onClick={() => setShowEmailModal(false)}
-                                    style={{
-                                        padding: '10px 20px',
-                                        backgroundColor: '#333',
-                                        color: 'white',
-                                        border: 'none',
-                                        borderRadius: '6px',
-                                        cursor: 'pointer'
-                                    }}
-                                >
-                                    Cancel
-                                </button>
-                                <button
-                                    type="submit"
-                                    style={{
-                                        padding: '10px 20px',
-                                        background: 'linear-gradient(45deg, #00c6ff, #0072ff)',
-                                        color: 'white',
-                                        border: 'none',
-                                        borderRadius: '6px',
-                                        cursor: 'pointer',
-                                        fontWeight: 'bold'
-                                    }}
-                                >
-                                    Save
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
-            
-            <div style={{ 
-                flex: 1, 
-                padding: '40px 20px',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                opacity: animationActive ? 1 : 0,
-                transform: animationActive ? 'translateY(0)' : 'translateY(20px)',
-                transition: 'opacity 0.8s ease, transform 0.8s ease'
-            }}>
-                <div style={{
-                    maxWidth: '800px',
-                    width: '100%',
-                    padding: '30px',
-                    backgroundColor: '#1e1e1e',
-                    borderRadius: '12px',
-                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
-                    marginBottom: '30px',
-                    border: '1px solid #333',
-                    transition: 'all 0.3s ease'
-                }}>
-                    <h1 style={{
-                        textAlign: 'center',
-                        fontSize: '28px',
-                        marginBottom: '20px',
-                        background: 'linear-gradient(45deg, #00c6ff, #0072ff)',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                        fontWeight: 'bold'
-                    }}>Voice Recording Dashboard</h1>
-                    
-                    {/* Audio Visualizer */}
-                    <div style={{
-                        width: '100%',
-                        height: '120px',
-                        marginBottom: '20px',
-                        borderRadius: '8px',
-                        overflow: 'hidden',
-                        backgroundColor: '#000',
-                        display: 'flex',
-                        justifyContent: 'center',
-                        alignItems: 'center'
-                    }}>
-                        {isRecording ? (
-                            <canvas 
-                                ref={visualizerRef} 
-                                width="700" 
-                                height="120" 
-                                style={{ width: '100%', height: '100%' }}
-                            />
-                        ) : (
-                            <div style={{
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                color: '#666'
-                            }}>
-                                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                    <path d="M12 15C13.66 15 15 13.66 15 12V5C15 3.34 13.66 2 12 2C10.34 2 9 3.34 9 5V12C9 13.66 10.34 15 12 15Z" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                    <path d="M19 10V12C19 16.42 15.42 20 11 20C6.58 20 3 16.42 3 12V10" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                    <path d="M12 20V22" stroke="#666" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                                </svg>
-                                <p style={{ marginTop: '10px', fontSize: '14px' }}>Press Start to Record</p>
-                            </div>
-                        )}
-                    </div>
-
-                    {apiResult && (
-                        <div style={{
-                            backgroundColor: '#252525',
-                            padding: '15px',
-                            borderRadius: '8px',
-                            marginTop: '20px',
-                            border: '1px solid #333',
-                            animation: 'fadeIn 0.5s ease'
-                        }}>
-                            <h3 style={{ 
-                                marginBottom: '10px',
-                                color: '#00c6ff'
-                            }}>API Result</h3>
-                            <pre style={{
-                                whiteSpace: 'pre-wrap',
-                                wordBreak: 'break-word',
-                                backgroundColor: '#1a1a1a',
-                                padding: '15px',
-                                borderRadius: '4px',
-                                maxHeight: '300px',
-                                overflow: 'auto',
-                                color: '#ddd',
-                                fontSize: '14px',
-                                fontFamily: 'monospace'
-                            }}>
-                                {typeof apiResult === 'string' 
-                                    ? apiResult 
-                                    : JSON.stringify(apiResult, null, 2)}
-                            </pre>
                         </div>
-                    )}
-                    
-                    {recordingStatus && (
-                        <div style={{
-                            padding: '12px 20px',
-                            backgroundColor: isRecording ? 'rgba(255, 75, 75, 0.2)' : 'rgba(0, 114, 255, 0.2)',
-                            color: isRecording ? '#ff4b4b' : '#0072ff',
-                            borderRadius: '8px',
-                            marginTop: '20px',
-                            textAlign: 'center',
-                            border: `1px solid ${isRecording ? '#ff4b4b' : '#0072ff'}`,
-                            animation: 'pulse 2s infinite ease-in-out'
-                        }}>
-                            <span style={{ 
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                gap: '10px'
-                            }}>
-                                {isRecording && (
-                                    <span style={{
-                                        width: '12px',
-                                        height: '12px',
-                                        backgroundColor: '#ff4b4b',
-                                        borderRadius: '50%',
-                                        display: 'inline-block',
-                                        animation: 'blink 1s infinite'
-                                    }}></span>
-                                )}
-                                {recordingStatus}
-                            </span>
-                        </div>
-                    )}
-                    
-                    {/* Control Buttons */}
-                    <div style={{ 
-                        display: 'flex',
-                        justifyContent: 'center',
-                        gap: '15px',
-                        marginTop: '30px'
-                    }}>
-                        <button 
-                            onClick={startRecording}
-                            disabled={isRecording || isProcessing}
-                            style={{ 
-                                padding: '12px 24px',
-                                background: isRecording || isProcessing ? '#333' : 'linear-gradient(45deg, #00c6ff, #0072ff)',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '30px',
-                                cursor: isRecording || isProcessing ? 'not-allowed' : 'pointer',
-                                opacity: isRecording || isProcessing ? 0.7 : 1,
-                                fontWeight: 'bold',
-                                transition: 'all 0.3s ease',
-                                boxShadow: '0 4px 15px rgba(0, 114, 255, 0.3)'
-                            }}
-                        >
-                            Start Recording
-                        </button>
                         
-                        <button 
-                            onClick={stopRecording}
-                            disabled={!isRecording || isProcessing}
-                            style={{ 
-                                padding: '12px 24px',
-                                background: !isRecording || isProcessing ? '#333' : 'linear-gradient(45deg, #ff4b4b, #ff0000)',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '30px',
-                                cursor: !isRecording || isProcessing ? 'not-allowed' : 'pointer',
-                                opacity: !isRecording || isProcessing ? 0.7 : 1,
-                                fontWeight: 'bold',
-                                transition: 'all 0.3s ease',
-                                boxShadow: !isRecording ? 'none' : '0 4px 15px rgba(255, 0, 0, 0.3)'
-                            }}
+                        <DialogFooter>
+                            <DialogClose asChild>
+                                <Button type="button" variant="outline">Cancel</Button>
+                            </DialogClose>
+                            <Button type="submit">Save</Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
+            
+            <motion.div 
+                className="flex-1 p-10 flex flex-col items-center justify-center"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ 
+                    opacity: animationActive ? 1 : 0, 
+                    y: animationActive ? 0 : 20 
+                }}
+                transition={{ duration: 0.5, ease: "easeOut" }}
+            >
+                <Card className="w-full max-w-3xl shadow-lg border-border backdrop-blur-sm bg-card/90 overflow-hidden">
+                    <CardHeader className="border-b border-border/40">
+                        <CardTitle className="text-center text-2xl bg-gradient-to-r from-primary to-indigo-500 bg-clip-text text-transparent font-bold">
+                            Voice Recording Dashboard
+                        </CardTitle>
+                    </CardHeader>
+                    
+                    <CardContent className="p-6">
+                        {/* Audio Visualizer */}
+                        <motion.div 
+                            className="w-full h-[140px] mb-5 rounded-lg overflow-hidden bg-muted/50 flex justify-center items-center border border-border/30 shadow-inner"
+                            whileHover={{ scale: 1.01 }}
+                            transition={{ duration: 0.2 }}
                         >
-                            Stop Recording
-                        </button>
+                            {isRecording ? (
+                                <canvas 
+                                    ref={visualizerRef} 
+                                    width="700" 
+                                    height="140" 
+                                    className="w-full h-full"
+                                />
+                            ) : (
+                                <div className="flex flex-col items-center justify-center text-muted-foreground">
+                                    <Mic className="h-12 w-12 mb-3 text-primary/70" />
+                                    <p className="text-sm font-medium">Press Start to Record</p>
+                                </div>
+                            )}
+                        </motion.div>
+
+                        <AnimatePresence>
+                            {apiResult && (
+                                <motion.div 
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: 10 }}
+                                    className="bg-card p-4 rounded-lg mt-5 border border-border/50 shadow-sm"
+                                >
+                                    <h3 className="mb-2 text-primary font-medium flex items-center gap-2">
+                                        <AlertCircle className="h-4 w-4" />
+                                        API Result
+                                    </h3>
+                                    <Separator className="my-2" />
+                                    <pre className="whitespace-pre-wrap break-words bg-muted/50 p-4 rounded-md max-h-[300px] overflow-auto text-sm font-mono">
+                                        {typeof apiResult === 'string' 
+                                            ? apiResult 
+                                            : JSON.stringify(apiResult, null, 2)}
+                                    </pre>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                        
+                        <AnimatePresence>
+                            {recordingStatus && (
+                                <motion.div 
+                                    initial={{ opacity: 0, y: 5 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    exit={{ opacity: 0, y: 5 }}
+                                    className={`p-3 rounded-lg mt-5 text-center border flex items-center justify-center gap-2 shadow-sm ${
+                                        isRecording 
+                                            ? 'bg-destructive/10 text-destructive border-destructive/50' 
+                                            : 'bg-primary/10 text-primary border-primary/50'
+                                    }`}
+                                >
+                                    {isRecording && (
+                                        <span className="w-3 h-3 bg-destructive rounded-full inline-block animate-pulse"></span>
+                                    )}
+                                    {isProcessing && (
+                                        <Loader2 className="h-4 w-4 animate-spin" />
+                                    )}
+                                    {recordingStatus}
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+                    </CardContent>
+                    
+                    <CardFooter className="flex justify-center gap-4 p-6 pt-2 border-t border-border/40 bg-muted/20">
+                        <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                            <Button 
+                                onClick={startRecording}
+                                disabled={isRecording || isProcessing}
+                                variant="default"
+                                className="rounded-full shadow-md flex gap-2 px-6"
+                                size="lg"
+                            >
+                                <Mic className="h-4 w-4" />
+                                Start Recording
+                            </Button>
+                        </motion.div>
+                        
+                        <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                            <Button 
+                                onClick={stopRecording}
+                                disabled={!isRecording || isProcessing}
+                                variant="destructive"
+                                className="rounded-full shadow-md flex gap-2 px-6"
+                                size="lg"
+                            >
+                                <Square className="h-4 w-4" />
+                                Stop Recording
+                            </Button>
+                        </motion.div>
                         
                         {audioUrl && (
-                            <>
-                                <button 
+                            <motion.div 
+                                initial={{ opacity: 0, scale: 0.9 }}
+                                animate={{ opacity: 1, scale: 1 }}
+                                whileHover={{ scale: 1.05 }} 
+                                whileTap={{ scale: 0.95 }}
+                            >
+                                <Button 
                                     onClick={playRecording}
-                                    style={{ 
-                                        padding: '12px 24px',
-                                        background: 'linear-gradient(45deg, #00d2ff, #3a7bd5)',
-                                        color: 'white',
-                                        border: 'none',
-                                        borderRadius: '30px',
-                                        cursor: 'pointer',
-                                        fontWeight: 'bold',
-                                        transition: 'all 0.3s ease',
-                                        boxShadow: '0 4px 15px rgba(0, 210, 255, 0.3)'
-                                    }}
+                                    variant="secondary"
+                                    className="rounded-full shadow-md flex gap-2 px-6"
+                                    size="lg"
                                 >
+                                    <Play className="h-4 w-4" />
                                     Play Recording
-                                </button>
+                                </Button>
                                 
-                                <audio ref={audioRef} src={audioUrl} style={{ display: 'none' }} />
-                            </>
+                                <audio ref={audioRef} src={audioUrl} className="hidden" />
+                            </motion.div>
                         )}
-                    </div>
-                </div>
-            </div>
+                    </CardFooter>
+                </Card>
+            </motion.div>
             
-            <style jsx global>{`
-                @keyframes pulse {
-                    0% { opacity: 1; }
-                    50% { opacity: 0.7; }
-                    100% { opacity: 1; }
-                }
-                
-                @keyframes blink {
-                    0% { opacity: 1; }
-                    50% { opacity: 0.3; }
-                    100% { opacity: 1; }
-                }
-                
-                @keyframes fadeIn {
-                    from { opacity: 0; transform: translateY(10px); }
-                    to { opacity: 1; transform: translateY(0); }
-                }
-                
-                @keyframes scaleIn {
-                    from { opacity: 0; transform: scale(0.9); }
-                    to { opacity: 1; transform: scale(1); }
-                }
-            `}</style>
+            <Toaster richColors position="top-right" />
         </div>
     );
 };
